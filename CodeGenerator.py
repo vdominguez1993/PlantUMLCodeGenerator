@@ -44,7 +44,7 @@ class PlantUMLCodeGeneration():
             raise Exception('File {} does not exist.'.format(plantuml_file))
 
     def CheckUml(self):
-        if subprocess.call(['plantuml',self.plantuml_file]) == 0:
+        if subprocess.call(['plantuml',self.plantuml_file, '--checkonly']) == 0:
             return True
         else:
             return False
@@ -130,14 +130,15 @@ class PlantUMLCodeGeneration():
             uml_params.states[state_origin] = self.StateType()
 
     def GenerateFromTemplate(self, output_file, template_file, uml, uml_params):
+        print('Environment:',os.path.dirname(template_file))
         env = Environment(
-            loader=FileSystemLoader('templates')
+            loader=FileSystemLoader(os.path.dirname(template_file))
         )
 
-        template = env.get_template(template_file)
+        template = env.get_template(os.path.basename(template_file))
 
         with open(output_file, 'w') as out_file:
-            out_file.write(template.render(file_name=output_file, uml=uml))
+            out_file.write(template.render(file_name=output_file, uml=uml, uml_params=uml_params))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process PlantUML file to generate code')
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     parser.add_argument('--output','-o', required = True, dest = 'output_files',
                         help ='Code file generated. Separate by comma in case of'
                         'more than one template')
-    parser.add_argument('--templates', '-t', dest = 'templates', default = 'C_code.c,C_code.h',
+    parser.add_argument('--templates', '-t', dest = 'templates', default = 'templates/C_code.c,templates/C_code.h',
                         help = 'Templates to be used separated by comma')
     parser.add_argument('--no-check', action = 'store_true',
                         help = 'This option is strongly discouraged. With this option'

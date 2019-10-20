@@ -1,0 +1,17 @@
+@startuml
+
+title Example FSM \
+Working in C
+[*] --> Main_FSM
+state Main_FSM : some_action
+
+state "State name" as Main_FSM {
+  state state1 : some actions
+  state state2 : some actions 2
+  [*] --> state1
+  state1 --> state2 : conditions 1
+  state2 --> state1 : some conditions
+  state2 --> state2 : autotransition_cond
+  }
+
+@enduml

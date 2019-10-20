@@ -24,7 +24,9 @@ Just install Linux
 Really?
 
 ## Supported languages
-For the moment only C language will be supported.
+For the moment only C language will be supported. But I'm planning to make it
+template based, so you won't need any specific language support, just the right
+template.
 
 ## Syntax
 This script will generate code based on special syntax inside PlantUML state

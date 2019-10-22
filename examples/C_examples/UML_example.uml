@@ -3,7 +3,13 @@
 title Example FSM \
 Working in C
 [*] --> Main_FSM
+Main_State_2 --> Main_FSM: condition1
+Main_FSM --> Main_State_2: condition2
+
 state Main_FSM : some_action
+Main_State_2 : entry: Entry action \n\
+during: during action \n\
+exit: exit action
 
 state "State name" as Main_FSM {
   state state1 : some actions

@@ -16,7 +16,7 @@ class PlantUMLCodeGeneration():
                     str(self.during),
                     str(self.exit),
                     [transition.StringMe() for transition in self.transitions],
-                    str(self.submachine)
+                    [submachine.StringMe() for submachine in self.submachine]
                     )
 
     class TransitionType():
@@ -36,6 +36,12 @@ class PlantUMLCodeGeneration():
             self.title = None
             self.states = {}
             self.notes = []
+        def StringMe(self):
+            return 'Title: {}\nStates: {}\nNotes: {}\n'.format(
+                str(self.title),
+                '\n'.join()[state + ' ' + self.states[state].StringMe() for state in self.states]),
+                str(self.notes)
+                )
 
     def __init__(self, plantuml_file):
         if os.path.isfile(plantuml_file):
@@ -56,6 +62,8 @@ class PlantUMLCodeGeneration():
                 raise Exception('File {} contains UML errors.'.format(self.plantuml_file))
 
         uml, uml_params = self.ParseStateMachine()
+
+        print(uml_params.StringMe())
 
         if len(output_files) == len(templates):
             for out_file, template in zip(output_files, templates):
@@ -95,29 +103,44 @@ class PlantUMLCodeGeneration():
 
                 return uml_grouped
 
-    def ParseStateMachineAsDict(self, uml_text):
+    def ParseStateMachineAsDict(self, uml_text, init_line = 0, submachine = False):
         uml_params = self.StateMachineType()
-        line_num = 0
+        line_num = init_line
+        opening_braces = 0
+        closing_braces = 0
 
         while line_num < len(uml_text):
             line = uml_text[line_num]
+
+            if submachine:
+                # Pending to refactor this
+                opening_braces += line.count('{')
+                closing_braces += line.count('}')
+                if closing_braces > opening_braces:
+                    break
+
+            # Regex magic yay!
             matchtransition = re.match('(\[\*\]|\w+)(?:|\s+)-->(?:|\s+)(\w+)(?:(?:|\s+)\:(.*))?',line)
             matchstateaction = re.match('(?:state\s+)?(\w+)(?:|\s+)(?:(?:|\s+)\:(.*))?',line)
-            #matchsubmachine = re.match('(?:state\s+)?\s+(\w+)(?:|\s+)(?:(?:|\s+)\:(.*))?',line)
+            matchsubmachine = re.match('(?:state\s+)?(\w+)(?:|\s+)\{.*$',line)
+
             if line.startswith('title'):
                 uml_params.title = line
             elif matchtransition:
                 self.__AddTransition(uml_params, matchtransition)
+            elif matchsubmachine:
+                #Pending to do this in a more elegant way and not depending
+                # on the order of the ifs
+                state_name = matchstateaction.group(1)
+                if uml_params.states.get(state_name) == None:
+                    uml_params.states[state_name] = self.StateType()
+                sub_info = self.ParseStateMachineAsDict(uml_text, init_line = line_num + 1, submachine = True)
+                uml_params.states[state_name].submachine.append(sub_info[0])
+                line_num = sub_info[1]
             elif matchstateaction:
                 self.__AddStateActions(uml_params, matchstateaction)
-            #elif matchsubmachine:
-            #    pass
 
             line_num += 1
-
-        #print('\n'.join(uml_text))
-        for state in uml_params.states:
-            print(state.upper(), uml_params.states[state].StringMe())
 
         return uml_params, line_num
 

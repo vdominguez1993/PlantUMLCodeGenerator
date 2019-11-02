@@ -37,9 +37,9 @@ class PlantUMLCodeGeneration():
             self.states = {}
             self.notes = []
         def StringMe(self):
-            return 'Title: {}\nStates: {}\nNotes: {}\n'.format(
+            return 'Title: {}\nStates: \n\t{}\nNotes: {}\n'.format(
                 str(self.title),
-                '\n'.join()[state + ' ' + self.states[state].StringMe() for state in self.states]),
+                '\n\t'.join([state + ' ' + self.states[state].StringMe() for state in self.states]),
                 str(self.notes)
                 )
 
@@ -135,6 +135,8 @@ class PlantUMLCodeGeneration():
                 if uml_params.states.get(state_name) == None:
                     uml_params.states[state_name] = self.StateType()
                 sub_info = self.ParseStateMachineAsDict(uml_text, init_line = line_num + 1, submachine = True)
+                #Set state name as title
+                sub_info[0].title = state_name + '_submachine'
                 uml_params.states[state_name].submachine.append(sub_info[0])
                 line_num = sub_info[1]
             elif matchstateaction:
@@ -149,7 +151,7 @@ class PlantUMLCodeGeneration():
         state_origin = matchtransition.group(1)
         transition.destination = matchtransition.group(2)
         conditions = matchtransition.group(3)
-        transition.conditions = conditions.replace('\\n','\n') if conditions else None
+        transition.conditions = conditions.replace('\\n','\n').strip() if conditions else None
         #transition.actions = matchtransition.group(4)
         #Check if state exits, if not, create it
         if uml_params.states.get(state_origin) == None:
@@ -169,6 +171,9 @@ class PlantUMLCodeGeneration():
         if actions:
             #Do a regex split
             action_matches = re.split(r'(entry\:|during\:|exit\:)', actions)
+
+            #Replace \n by real \n and trim
+            action_matches = [line.replace('\\n','\n').strip() for line in action_matches]
 
             #The list will start with an empty string (or spaces) if it does not match entry
             #any of the keywords. But if it starts with text it is a during
@@ -200,7 +205,19 @@ class PlantUMLCodeGeneration():
         template = env.get_template(os.path.basename(template_file))
 
         with open(output_file, 'w') as out_file:
-            out_file.write(template.render(file_name=output_file, uml=uml, uml_params=uml_params))
+            out_file.write(template.render(file_name=output_file, uml=uml,
+             uml_params=uml_params, get_submachines=self.GetSubmachineObjects))
+
+    def GetSubmachineObjects(self, uml_object):
+        uml_submachines_list = []
+        for state in uml_object.states:
+            if len(uml_object.states[state].submachine) > 0:
+                for uml_submachine in uml_object.states[state].submachine:
+                    #Set title of submachine as the name of state parent
+                    uml_submachines_list.append(uml_submachine)
+                    #Recursion to get more levels
+                    uml_submachines_list += self.GetSubmachineObjects(uml_submachine)
+        return uml_submachines_list
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process PlantUML file to generate code')

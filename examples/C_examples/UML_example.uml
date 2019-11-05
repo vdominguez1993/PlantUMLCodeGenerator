@@ -1,0 +1,24 @@
+@startuml
+
+title Example FSM \
+Working in C
+[*] --> Main_FSM
+Main_FSM --> Main_State_2: condition2
+Main_State_2 --> Main_FSM: condition1
+
+state Main_FSM : printf("I'm in main state");\n\
+printf("I'm not moving of here");
+Main_State_2 : entry: Entry action \n\
+during: during action \n\
+exit: exit action
+
+state "Main FSM" as Main_FSM {
+  state state1 : some actions
+  state state2 : some actions 2
+  [*] --> state1
+  state1 --> state2 : conditions 1
+  state2 --> state1 : some conditions
+  state2 --> state2 : autotransition_cond
+  }
+
+@enduml

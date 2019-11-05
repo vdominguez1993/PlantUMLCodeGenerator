@@ -127,7 +127,7 @@ class PlantUMLCodeGeneration():
             elif line.startswith('note'):
                 note_match = re.match('.*\"(.*)\"', line)
                 if note_match:
-                    uml_params.notes.append(note_match.group(1).replace('\\n','\n').strip())
+                    uml_params.notes.append(self.__LineCleanup(note_match.group(1)))
             elif matchtransition:
                 self.__AddTransition(uml_params, matchtransition)
             elif matchsubmachine:
@@ -148,6 +148,11 @@ class PlantUMLCodeGeneration():
 
         return uml_params, line_num
 
+    def __LineCleanup(self, line_string):
+        cleaned_string = re.sub(r'(?<!\\)\\n','\n',line_string)
+        cleaned_string = cleaned_string.replace('\\\\','\\').strip()
+        return cleaned_string
+
     def __AddTransition(self, uml_params, matchtransition):
         transition = self.TransitionType()
         state_origin = matchtransition.group(1)
@@ -156,10 +161,10 @@ class PlantUMLCodeGeneration():
         if text is not None:
             text = text.split('\\ndo:\\n')
             conditions = text[0]
-            transition.conditions = conditions.replace('\\n','\n').strip()
+            transition.conditions = self.__LineCleanup(conditions)
             if len(text) > 1:
                 actions = text[1] if text else None
-                transition.actions = actions.replace('\\n','\n').strip()
+                transition.actions = self.__LineCleanup(actions)
         #transition.actions = matchtransition.group(4)
         #Check if state exits, if not, create it
         if uml_params.states.get(state_origin) == None:
@@ -181,7 +186,7 @@ class PlantUMLCodeGeneration():
             action_matches = re.split(r'(entry\:|during\:|exit\:)', actions)
 
             #Replace \n by real \n and trim
-            action_matches = [line.replace('\\n','\n').strip() for line in action_matches]
+            action_matches = [self.__LineCleanup(line) for line in action_matches]
 
             #The list will start with an empty string (or spaces) if it does not match entry
             #any of the keywords. But if it starts with text it is a during

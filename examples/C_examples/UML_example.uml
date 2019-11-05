@@ -6,11 +6,11 @@ Working in C
 state_with_sm --> Main_State_2: delay >= 5
 Main_State_2 --> state_with_sm: delay >= 10
 
-state state_with_sm : entry\n printf("I'm in main state");\n\
+state state_with_sm : entry\n printf("I'm in main state\\r\\n");\n\
 during:\n static long int i = 0;\n \
  i++;\
 exit:\n\
- printf("i reached: %ld", i);
+ printf("i reached: %ld\\r\\n", i);
 
 state "Main FSM" as state_with_sm {
   state state1 :

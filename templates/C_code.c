@@ -8,32 +8,45 @@
 
 
 #include "{{file_name.replace('.c','.h')}}"
+#include <time.h>
+#include <stdint.h>
+#include <stdio.h>
 
-/* Typedefs */
-/* States of submachines */
-{%- for submachine in submachines_list %}
-typedef enum{
-{%- for state in submachine.states %}
-{%- if state == '[*]' %}
-    STATE_{{submachine.title.upper()}}_INITIAL,
-{%- else %}
-    STATE_{{submachine.title.upper()}}_{{state.upper()}},
+{#> Includes #}
+{%- for note in uml_params.notes %}
+{%- if note.startswith('Includes:') %}
+{%- for line in note.split('\n')[1:] %}
+#include "{{line}}"
+{%- endfor %}
 {%- endif %}
 {%- endfor %}
-} t_states_{{submachine.title}};
+
+{#> Defines #}
+{%- for note in uml_params.notes %}
+{%- if note.startswith('Defines:') %}
+{%- for line in note.split('\n')[1:] %}
+#define {{line}}
+{%- endfor %}
+{%- endif %}
 {%- endfor %}
 
-static t_{{fsm_name}} {{fsm_name}}_state = STATE_INITIAL;
+static t_states_{{fsm_name}} {{fsm_name}}_state = STATE_{{fsm_name.upper()}}_INITIAL;
 {% for submachine in submachines_list %}
-static t_{{submachine.title}} {{submachine.title}}_state = STATE_{{submachine.title.upper()}}_INITIAL;
+static t_states_{{submachine.title}} {{submachine.title}}_state = STATE_{{submachine.title.upper()}}_INITIAL;
+{%- endfor %}
+
+static int delay = 0;
+
+{% for submachine in submachines_list %}
+static int delay_{{submachine.title.lower().replace('_submachine','')}} = 0;
 {%- endfor %}
 
 {# Submachine function prototypes #}
 {% for submachine in submachines_list %}
 /*** Submachine prototypes for task and init ***/
-static void {{submachine.title + '_init'}}( void );
+static void {{submachine.title}}_initialize( void );
 
-static void {{submachine.title + '_task'}}( void );
+static void {{submachine.title}}_task( void );
 {% endfor %}
 
 {%- macro function_prototypes(fsm_name, uml_params) %}
@@ -54,33 +67,41 @@ static void {{state.lower()}}( void );
 {{function_prototypes(submachine.title, submachine)}}
 {%- endfor %}
 
-{%- macro core_code_implementation(fsm_name, uml_params) %}
-void {{fsm_name}}_initialize( void ){
-    static t_{{fsm_name}} {{fsm_name}}_state = STATE_INITIAL;
+{%- macro core_code_implementation(fsm_name, uml_params, delay_name, is_main = true) %}
+{{'' if is_main else 'static '}}void {{fsm_name}}_initialize( void ){
+    {{fsm_name}}_state = STATE_{{fsm_name.upper()}}_INITIAL;
 }
 
-void {{fsm_name}}_task( void ){
+{{'' if is_main else 'static '}}void {{fsm_name}}_task( void ){
+
+    static struct timespec last_time;
+    struct timespec current_time;
+
+    (void) clock_gettime(CLOCK_MONOTONIC, &current_time);
+    {{delay_name}} += current_time.tv_sec - last_time.tv_sec;
+    last_time = current_time;
+
     switch ({{fsm_name}}_state){
 {%- for state in uml_params.states %}
     {#- Exception for initial state #}
     {%- if state == '[*]' %}
-        case STATE_INITIAL:
-            initial_state();
+        case STATE_{{fsm_name.upper()}}_INITIAL:
+            {{fsm_name}}_initial_state();
     {%- else %}
-        case STATE_{{state.upper()}}:
+        case STATE_{{fsm_name.upper()}}_{{state.upper()}}:
             {{state.lower()}}();
     {%- endif %}
             break;
 {%- endfor %}
         default:
-            {{fsm_name}}_state = STATE_INITIAL;
+            {{fsm_name}}_state = STATE_{{fsm_name.upper()}}_INITIAL;
             break;
     }
 }
 {%- endmacro %}
 
-{%- macro function_implementation(fsm_name, uml_params) %}
-{%- for state in uml_params.states %}
+{%- macro function_implementation(fsm_name, uml_params, delay_name) %}
+{% for state in uml_params.states %}
 {%- if state == '[*]' %}
 static void {{fsm_name}}_initial_state( void ){
 {%- else %}
@@ -103,6 +124,9 @@ static void {{state.lower()}}( void ){
     {%- set indentation_level = 8 %}
     if ({{transition.conditions|indent(6,false)}}) {
     {%- endif %}
+        {%- if transition.actions is not none %}
+{{transition.actions|indent(indentation_level,true)}}
+        {%- endif %}
         {%- if uml_params.states[state].exit is not none %}
 {{uml_params.states[state].exit|indent(indentation_level,true)}}
         {%- endif %}
@@ -111,33 +135,45 @@ static void {{state.lower()}}( void ){
         {%- endif %}
         {%- if uml_params.states[transition.destination].submachine != [] %}
         {%- for submachine in uml_params.states[transition.destination].submachine %}
-{{(submachine.title + '_init();')|indent(indentation_level,true)}}
+{{(submachine.title + '_initialize();')|indent(indentation_level,true)}}
         {%- endfor %}
         {%- endif %}
-{{('state = ' + transition.destination.upper())|indent(indentation_level,true)}};
+{{(fsm_name + '_state = ' + 'STATE_' + fsm_name.upper() + '_' + transition.destination.upper())|indent(indentation_level,true)}};
+{{ (delay_name + ' = 0')|indent(indentation_level,true)}};
+{{('printf("Transition from: ' + state.upper() +' to: ' + transition.destination.upper() +' \\r\\n");')|indent(indentation_level,true)}}
     {%- if transition.conditions is not none %}
     }
     {%- endif %}
     {%- endfor %}
 }
-{%- endfor %}
+{% endfor %}
 {%- endmacro %}
 
 {#- Main FSM #}
 
 /******** {{fsm_name}} ********/
-{{core_code_implementation(fsm_name, uml_params)}}
+t_states_{{fsm_name}} {{fsm_name}}_get_state( void )
+{
+    return {{fsm_name}}_state;
+}
+
+{{core_code_implementation(fsm_name, uml_params, 'delay')}}
 
 
 /*** State implementations for {{fsm_name}} ***/
-{{function_implementation(fsm_name, uml_params)}}
+{{function_implementation(fsm_name, uml_params, 'delay')}}
 
 
 {% for submachine in submachines_list %}
 /******** {{submachine.title}} ********/
-{{core_code_implementation(submachine.title, submachine)}}
+t_states_{{submachine.title}} {{submachine.title}}_get_state( void )
+{
+    return {{submachine.title}}_state;
+}
+
+{{core_code_implementation(submachine.title, submachine,'delay_' + submachine.title.lower().replace('_submachine',''), false )}}
 
 
 /*** State implementations for {{submachine.title}} ***/
-{{function_implementation(submachine.title, submachine)}}
+{{function_implementation(submachine.title, submachine,'delay_' + submachine.title.lower().replace('_submachine','') )}}
 {%- endfor %}

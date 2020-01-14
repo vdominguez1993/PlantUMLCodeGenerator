@@ -1,6 +1,9 @@
 import argparse, subprocess, os, re
 from jinja2 import Environment, FileSystemLoader
 
+def GetBaseName(full_path):
+    return os.path.basename(full_path)
+
 class PlantUMLCodeGeneration():
 
     class StateType():
@@ -218,7 +221,8 @@ class PlantUMLCodeGeneration():
 
         with open(output_file, 'w') as out_file:
             out_file.write(template.render(file_name=output_file, uml=uml,
-             uml_params=uml_params, get_submachines=self.GetSubmachineObjects))
+             uml_params=uml_params, get_submachines=self.GetSubmachineObjects,
+             get_basename=GetBaseName))
 
     def GetSubmachineObjects(self, uml_object):
         uml_submachines_list = []

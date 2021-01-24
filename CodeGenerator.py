@@ -240,10 +240,10 @@ if __name__ == "__main__":
     parser.add_argument('--input','-i', required = True, dest = 'plantuml_file',
                         help ='Plant UML file from which to generate code')
     parser.add_argument('--output','-o', required = True, dest = 'output_files',
-                        help ='Code file generated. Separate by comma in case of'
-                        'more than one template')
-    parser.add_argument('--templates', '-t', dest = 'templates', default = 'templates/C_code.c,templates/C_code.h',
-                        help = 'Templates to be used separated by comma')
+                        help ='Code file generated. Separate by spaces in case of'
+                        'more than one template', nargs='+')
+    parser.add_argument('--templates', '-t', dest = 'templates', default = '[templates/C_code.c,templates/C_code.h]',
+                        help = 'Templates to be used separated by spaces', nargs='+')
     parser.add_argument('--no-check', action = 'store_true',
                         help = 'This option is strongly discouraged. With this option'
                         'you are defining to not check that your PlantUML is valid.')
@@ -252,6 +252,4 @@ if __name__ == "__main__":
 
     plantuml_obj = PlantUMLCodeGeneration(args.plantuml_file)
     #Transform templates to list
-    template_files = args.templates.split(',')
-    output_files = args.output_files.split(',')
-    plantuml_obj.GenerateCode(output_files, template_files)
+    plantuml_obj.GenerateCode(args.output_files, args.templates)

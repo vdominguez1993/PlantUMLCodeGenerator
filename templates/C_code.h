@@ -2,7 +2,7 @@
  * @file {{file_name}}
 {% for n in uml %} * {{n}}{% endfor %} *
  **/
-{% set fsm_name = file_name.replace('.h','') %}
+{% set fsm_name = get_basename(file_name).replace('.h','') %}
 {%- set submachines_list = get_submachines(uml_params) %}
 
 #ifndef _{{fsm_name.upper()}}_
